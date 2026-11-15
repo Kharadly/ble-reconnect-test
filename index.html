@@ -17,7 +17,7 @@ pre{margin:0;background:var(--p);border:1px solid var(--ln);border-radius:6px;pa
 .ok{color:var(--ok)}.bad{color:var(--bad)}
 </style></head><body><div class="wrap">
 <h1>BLE RECONNECT TEST</h1>
-<p>Keep Ram Remote connected in Android Bluetooth settings for both steps. Step 1 picks <b>Ram Control</b> once; step 2 reconnects to it without the list.</p>
+<p>Keep Ram Remote connected in Android Bluetooth settings for both steps. Step 2 uses the remembered <b>Ram Remote</b> over the walk-up link.</p>
 <button id="pick">1 &middot; Pick the board (once)</button>
 <button id="again">2 &middot; Reconnect to the remembered board</button>
 <button id="drop" class="sub">Disconnect from Chrome</button>
@@ -25,7 +25,7 @@ pre{margin:0;background:var(--p);border:1px solid var(--ln);border-radius:6px;pa
 </div>
 <script>
 const out = document.getElementById('out');
-const NAME = 'Ram Control';
+const NAME = 'Ram Remote';
 const OPT = ['device_information', 'battery_service'];
 let dev = null;
 function log(msg, cls) {
@@ -83,7 +83,7 @@ document.getElementById('again').onclick = async () => {
     const list = await navigator.bluetooth.getDevices();
     log('Chrome remembers ' + list.length + ' device(s): ' + (list.map(d => d.name || '?').join(', ') || 'none'));
     dev = list.find(d => d.name === NAME);
-    if (!dev) { log('No remembered Ram Control. Run step 1 first.', 'bad'); return; }
+    if (!dev) { log('No remembered Ram Remote.', 'bad'); return; }
     await waitForAdvert(dev, 10000);
     await readInfo(dev);
   } catch (e) { log('Step 2 failed: ' + e.name + ': ' + e.message, 'bad'); }
