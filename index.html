@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>BLE Reconnect Test</title>
+<style>
+:root{--bg:#030912;--p:#081726;--ln:#1d4468;--cy:#4fd0ff;--tx:#e8f7ff;--dim:#8fb4d1;--ok:#3ee8a4;--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 Roboto,system-ui,sans-serif}
+.wrap{max-width:520px;margin:0 auto;padding:16px;display:grid;gap:12px}
+h1{font-size:20px;letter-spacing:.12em;margin:4px 0}
+p{margin:0;color:var(--dim);font-size:14px}
+button{font:700 17px/1 Roboto,system-ui,sans-serif;letter-spacing:.06em;padding:18px 12px;border:1px solid var(--cy);background:#0d3157;color:var(--tx);border-radius:6px;width:100%}
+button:active{filter:brightness(1.4)}
+.sub{border-color:var(--ln);background:var(--p);font-size:15px;padding:14px 12px}
+pre{margin:0;background:var(--p);border:1px solid var(--ln);border-radius:6px;padding:12px;white-space:pre-wrap;word-break:break-word;font:13px/1.45 "Roboto Mono",monospace;min-height:160px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+</style></head><body><div class="wrap">
+<h1>BLE RECONNECT TEST</h1>
+<p>Step 1 runs once, with the phone's Bluetooth link to the board disconnected. Step 2 runs with the link connected again.</p>
+<button id="pick">1 &middot; Pick the board (once)</button>
+<button id="again">2 &middot; Reconnect to the remembered board</button>
+<button id="drop" class="sub">Disconnect from Chrome</button>
+<pre id="out"></pre>
+</div>
+<script>
+const out = document.getElementById('out');
+const NAME = 'Ram Remote';
+const OPT = ['device_information', 'battery_service'];
+let dev = null;
+function log(msg, cls) {
+  const t = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = t + '  ' + msg;
+  out.prepend(line);
+}
+function withTimeout(p, ms, what) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' timed out after ' + ms / 1000 + ' s')), ms))]);
+}
+async function readInfo(d) {
+  const t0 = performance.now();
+  log('Connecting to ' + (d.name || 'device') + ' ...');
+  const server = await withTimeout(d.gatt.connect(), 15000, 'Connect');
+  log('Connected in ' + Math.round(performance.now() - t0) + ' ms', 'ok');
+  const dis = await server.getPrimaryService('device_information');
+  const man = await (await dis.getCharacteristic('manufacturer_name_string')).readValue();
+  log('Read from board: manufacturer = "' + new TextDecoder().decode(man) + '"', 'ok');
+  try {
+    const bas = await server.getPrimaryService('battery_service');
+    const lvl = await (await bas.getCharacteristic('battery_level')).readValue();
+    log('Read from board: battery level = ' + lvl.getUint8(0) + ' %', 'ok');
+  } catch (e) { log('Battery read skipped: ' + e.message); }
+  log('RESULT: two-way link works.', 'ok');
+}
+document.getElementById('pick').onclick = async () => {
+  try {
+    if (!navigator.bluetooth) { log('This browser has no Web Bluetooth. Open the page in Chrome.', 'bad'); return; }
+    log('Opening the device list ...');
+    dev = await navigator.bluetooth.requestDevice({ filters: [{ name: NAME }], optionalServices: OPT });
+    log('Picked: ' + dev.name + ' (Chrome id ' + dev.id.slice(0, 6) + '...)', 'ok');
+    await readInfo(dev);
+    log('Now reconnect the board in Android Bluetooth settings, reload this page, and tap step 2.');
+  } catch (e) { log('Step 1 failed: ' + e.name + ': ' + e.message, 'bad'); }
+};
+document.getElementById('again').onclick = async () => {
+  try {
+    if (!navigator.bluetooth) { log('This browser has no Web Bluetooth. Open the page in Chrome.', 'bad'); return; }
+    if (!navigator.bluetooth.getDevices) { log('getDevices() is missing: turn on the Chrome flag enable-web-bluetooth-new-permissions-backend, then restart Chrome.', 'bad'); return; }
+    const list = await navigator.bluetooth.getDevices();
+    log('Chrome remembers ' + list.length + ' device(s): ' + (list.map(d => d.name || '?').join(', ') || 'none'));
+    dev = list.find(d => d.name === NAME) || list[0];
+    if (!dev) { log('No remembered board. Run step 1 first.', 'bad'); return; }
+    await readInfo(dev);
+  } catch (e) { log('Step 2 failed: ' + e.name + ': ' + e.message, 'bad'); }
+};
+document.getElementById('drop').onclick = () => {
+  if (dev && dev.gatt.connected) { dev.gatt.disconnect(); log('Chrome disconnected (the Android link is not affected).'); }
+  else log('Chrome is not connected.');
+};
+log('Ready. Web Bluetooth: ' + (navigator.bluetooth ? 'yes' : 'NO') + ', remembered devices: ' + (navigator.bluetooth && navigator.bluetooth.getDevices ? 'yes' : 'NO (flag off)'));
+</script>
+</body></html>
