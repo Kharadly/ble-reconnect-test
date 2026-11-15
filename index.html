@@ -17,7 +17,7 @@ pre{margin:0;background:var(--p);border:1px solid var(--ln);border-radius:6px;pa
 .ok{color:var(--ok)}.bad{color:var(--bad)}
 </style></head><body><div class="wrap">
 <h1>BLE RECONNECT TEST</h1>
-<p>Step 1 runs once, with the phone's Bluetooth link to the board disconnected. Step 2 runs with the link connected again.</p>
+<p>Keep Ram Remote connected in Android Bluetooth settings for both steps. Step 1 picks <b>Ram Control</b> once; step 2 reconnects to it without the list.</p>
 <button id="pick">1 &middot; Pick the board (once)</button>
 <button id="again">2 &middot; Reconnect to the remembered board</button>
 <button id="drop" class="sub">Disconnect from Chrome</button>
@@ -25,7 +25,7 @@ pre{margin:0;background:var(--p);border:1px solid var(--ln);border-radius:6px;pa
 </div>
 <script>
 const out = document.getElementById('out');
-const NAME = 'Ram Remote';
+const NAME = 'Ram Control';
 const OPT = ['device_information', 'battery_service'];
 let dev = null;
 function log(msg, cls) {
@@ -60,7 +60,7 @@ document.getElementById('pick').onclick = async () => {
     dev = await navigator.bluetooth.requestDevice({ filters: [{ name: NAME }], optionalServices: OPT });
     log('Picked: ' + dev.name + ' (Chrome id ' + dev.id.slice(0, 6) + '...)', 'ok');
     await readInfo(dev);
-    log('Now reconnect the board in Android Bluetooth settings, reload this page, and tap step 2.');
+    log('Now reload this page and tap step 2.');
   } catch (e) { log('Step 1 failed: ' + e.name + ': ' + e.message, 'bad'); }
 };
 document.getElementById('again').onclick = async () => {
@@ -69,8 +69,8 @@ document.getElementById('again').onclick = async () => {
     if (!navigator.bluetooth.getDevices) { log('getDevices() is missing: turn on the Chrome flag enable-web-bluetooth-new-permissions-backend, then restart Chrome.', 'bad'); return; }
     const list = await navigator.bluetooth.getDevices();
     log('Chrome remembers ' + list.length + ' device(s): ' + (list.map(d => d.name || '?').join(', ') || 'none'));
-    dev = list.find(d => d.name === NAME) || list[0];
-    if (!dev) { log('No remembered board. Run step 1 first.', 'bad'); return; }
+    dev = list.find(d => d.name === NAME);
+    if (!dev) { log('No remembered Ram Control. Run step 1 first.', 'bad'); return; }
     await readInfo(dev);
   } catch (e) { log('Step 2 failed: ' + e.name + ': ' + e.message, 'bad'); }
 };
