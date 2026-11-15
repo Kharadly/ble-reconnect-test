@@ -53,6 +53,19 @@ async function readInfo(d) {
   } catch (e) { log('Battery read skipped: ' + e.message); }
   log('RESULT: two-way link works.', 'ok');
 }
+async function waitForAdvert(d, ms) {
+  /* Chrome only connects to a device it has seen in this page session, so listen for its advert first. */
+  if (!d.watchAdvertisements) { log('watchAdvertisements() is missing in this Chrome.', 'bad'); return false; }
+  const ac = new AbortController();
+  const heard = new Promise(res => d.addEventListener('advertisementreceived', e => res(e), { once: true }));
+  log('Listening for ' + d.name + ' ...');
+  await d.watchAdvertisements({ signal: ac.signal });
+  try {
+    const e = await withTimeout(heard, ms, 'Listening');
+    log('Heard the board, signal ' + e.rssi + ' dBm', 'ok');
+    return true;
+  } finally { ac.abort(); }
+}
 document.getElementById('pick').onclick = async () => {
   try {
     if (!navigator.bluetooth) { log('This browser has no Web Bluetooth. Open the page in Chrome.', 'bad'); return; }
@@ -71,6 +84,7 @@ document.getElementById('again').onclick = async () => {
     log('Chrome remembers ' + list.length + ' device(s): ' + (list.map(d => d.name || '?').join(', ') || 'none'));
     dev = list.find(d => d.name === NAME);
     if (!dev) { log('No remembered Ram Control. Run step 1 first.', 'bad'); return; }
+    await waitForAdvert(dev, 10000);
     await readInfo(dev);
   } catch (e) { log('Step 2 failed: ' + e.name + ': ' + e.message, 'bad'); }
 };
